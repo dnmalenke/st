@@ -667,7 +667,7 @@ void selsnap(int *x, int *y, int direction)
 	}
 }
 
-char * getsel(void)
+char *getsel(void)
 {
 	char *str, *ptr;
 	int y, lastx, linelen;
