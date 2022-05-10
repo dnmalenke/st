@@ -63,6 +63,7 @@ static void zoomabs(const Arg *);
 static void zoomreset(const Arg *);
 static void ttysend(const Arg *);
 static void handleRightClick(const Arg *);
+void underlineurls(const Arg *);
 
 /* config.h for applying patches and the configuration. */
 #include "config.h"
@@ -123,6 +124,17 @@ typedef struct
 	struct timespec tclick1;
 	struct timespec tclick2;
 } XSelection;
+
+typedef struct
+{
+	int narg; /* nb of args */
+} STREscape;
+
+typedef struct
+{
+	int state;
+	size_t length;
+} URLdfa;
 
 /* Font structure */
 #define Font Font_
@@ -201,6 +213,7 @@ static void usage(void);
 
 static void (*handler[LASTEvent])(XEvent *) = {
 	[KeyPress] = kpress,
+	[KeyRelease] = kpress,
 	[ClientMessage] = cmessage,
 	[ConfigureNotify] = resize,
 	[VisibilityNotify] = visibility,
@@ -265,6 +278,9 @@ static char *opt_name = NULL;
 static char *opt_title = NULL;
 
 static uint buttons; /* bit field of pressed buttons */
+
+Cursor defaultCursor;
+Cursor handCursor;
 
 void clipcopy(const Arg *dummy)
 {
@@ -496,6 +512,54 @@ void bpress(XEvent *e)
 	int btn = e->xbutton.button;
 	struct timespec now;
 	int snap;
+
+	if (btn == Button1)
+	{
+		int x = evcol(e), y = evrow(e);
+
+		if (term.line[y][x].mode & ATTR_UNDERLINE)
+		{
+			// open url
+			int start = x;
+			int end = x;
+			while (term.line[y][start--].mode & ATTR_UNDERLINE)
+				;
+			start++;
+			while (term.line[y][end++].mode & ATTR_UNDERLINE)
+				;
+			end--;
+
+			char *url = malloc(end - start + 10); //= "xdg-open ";
+
+			url[0] = 'x';
+			url[1] = 'd';
+			url[2] = 'g';
+			url[3] = '-';
+			url[4] = 'o';
+			url[5] = 'p';
+			url[6] = 'e';
+			url[7] = 'n';
+			url[8] = ' ';
+
+			for (size_t i = start; i < end; i++)
+			{
+				url[i - start + 9] = term.line[y][i].u;
+			}
+			url[end-start+9] = '\0';
+
+			popen(url, "r");
+			free(url);
+
+			Arg in;
+			in.i = 1;
+
+			underlineurls(&in);
+
+			XDefineCursor(xw.dpy, xw.win, defaultCursor);
+
+			redraw();
+		}
+	}
 
 	if (1 <= btn && btn <= 11)
 		buttons |= 1 << (btn - 1);
@@ -761,6 +825,17 @@ void bmotion(XEvent *e)
 		return;
 	}
 
+	int x = evcol(e), y = evrow(e);
+
+	if (term.line[y][x].mode & ATTR_UNDERLINE)
+	{
+		XDefineCursor(xw.dpy, xw.win, handCursor);
+	}
+	else
+	{
+		XDefineCursor(xw.dpy, xw.win, defaultCursor);
+	}
+
 	mousesel(e, 0);
 }
 
@@ -930,7 +1005,7 @@ void xhints(void)
 		sizeh->y = xw.t;
 		sizeh->win_gravity = xgeommasktogravity(xw.gm);
 	}
-	
+
 	XSetWMProperties(xw.dpy, xw.win, NULL, NULL, NULL, 0, sizeh, &wm,
 					 &class);
 	XFree(sizeh);
@@ -1183,7 +1258,6 @@ int xicdestroy(XIC xim, XPointer client, XPointer call)
 void xinit(int cols, int rows)
 {
 	XGCValues gcvalues;
-	Cursor cursor;
 	Window parent;
 	pid_t thispid = getpid();
 	XColor xmousefg, xmousebg;
@@ -1216,7 +1290,7 @@ void xinit(int cols, int rows)
 	xw.attrs.background_pixel = dc.col[defaultbg].pixel;
 	xw.attrs.border_pixel = dc.col[defaultbg].pixel;
 	xw.attrs.bit_gravity = NorthWestGravity;
-	xw.attrs.event_mask = FocusChangeMask | KeyPressMask | KeyReleaseMask | ExposureMask | VisibilityChangeMask | StructureNotifyMask | ButtonMotionMask | ButtonPressMask | ButtonReleaseMask;
+	xw.attrs.event_mask = FocusChangeMask | KeyPressMask | KeyReleaseMask | ExposureMask | VisibilityChangeMask | StructureNotifyMask | PointerMotionMask | ButtonMotionMask | ButtonPressMask | ButtonReleaseMask;
 	xw.attrs.colormap = xw.cmap;
 
 	if (!(opt_embed && (parent = strtol(opt_embed, NULL, 0))))
@@ -1248,8 +1322,10 @@ void xinit(int cols, int rows)
 	}
 
 	/* white cursor, black outline */
-	cursor = XCreateFontCursor(xw.dpy, mouseshape);
-	XDefineCursor(xw.dpy, xw.win, cursor);
+	defaultCursor = XCreateFontCursor(xw.dpy, mouseshape);
+	XDefineCursor(xw.dpy, xw.win, defaultCursor);
+
+	handCursor = XCreateFontCursor(xw.dpy, XC_hand2);
 
 	if (XParseColor(xw.dpy, xw.cmap, colorname[mousefg], &xmousefg) == 0)
 	{
@@ -1265,7 +1341,8 @@ void xinit(int cols, int rows)
 		xmousebg.blue = 0x0000;
 	}
 
-	XRecolorCursor(xw.dpy, cursor, &xmousefg, &xmousebg);
+	XRecolorCursor(xw.dpy, defaultCursor, &xmousefg, &xmousebg);
+	XRecolorCursor(xw.dpy, handCursor, &xmousefg, &xmousebg);
 
 	xw.xembed = XInternAtom(xw.dpy, "_XEMBED", False);
 	xw.wmdeletewin = XInternAtom(xw.dpy, "WM_DELETE_WINDOW", False);
@@ -1917,6 +1994,36 @@ kmap(KeySym k, uint state)
 
 void kpress(XEvent *ev)
 {
+	if (ev->type == KeyRelease && ev->xkey.keycode == 0x25) // L Control Key
+	{
+		Arg in;
+		in.i = 1;
+
+		underlineurls(&in);
+
+		XDefineCursor(xw.dpy, xw.win, defaultCursor);
+
+		return;
+	}
+	else if (ev->type == KeyPress && ev->xkey.keycode == 0x25)
+	{
+		Arg in;
+		in.i = 0;
+
+		underlineurls(&in);
+
+		int x = evcol(ev), y = evrow(ev);
+
+		if (term.line[y][x].mode & ATTR_UNDERLINE)
+		{
+			XDefineCursor(xw.dpy, xw.win, handCursor);
+		}
+		else
+		{
+			XDefineCursor(xw.dpy, xw.win, defaultCursor);
+		}
+	}
+
 	XKeyEvent *e = &ev->xkey;
 	KeySym ksym;
 	char buf[64], *customkey;
@@ -2005,6 +2112,107 @@ void resize(XEvent *e)
 	cresize(e->xconfigure.width, e->xconfigure.height);
 }
 
+int daddch(URLdfa *dfa, char c)
+{
+	/* () and [] can appear in urls, but excluding them here will reduce false
+	 * positives when figuring out where a given url ends.
+	 */
+	static const char URLCHARS[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+								   "abcdefghijklmnopqrstuvwxyz"
+								   "0123456789-._~:/?#@!$&'*+,;=%";
+	static const char RPFX[] = "//:sptth";
+
+	if (!strchr(URLCHARS, c))
+	{
+		dfa->length = 0;
+		dfa->state = 0;
+
+		return 0;
+	}
+
+	dfa->length++;
+
+	if (dfa->state == 2 && c == '/')
+	{
+		dfa->state = 0;
+	}
+	else if (dfa->state == 3 && c == 'p')
+	{
+		dfa->state++;
+	}
+	else if (c != RPFX[dfa->state])
+	{
+		dfa->state = 0;
+		return 0;
+	}
+
+	if (dfa->state++ == 7)
+	{
+		dfa->state = 0;
+		return 1;
+	}
+
+	return 0;
+}
+void underlineurls(const Arg *dummy)
+{
+	int row = 0,	/* row of current URL */
+		col = 0,	/* column of current URL start */
+		colend = 0, /* column of last occurrence */
+		passes = 0; /* how many rows have been scanned */
+
+	const char *c = NULL,
+			   *match = NULL;
+	URLdfa dfa = {0};
+
+	row = term.bot;
+	LIMIT(row, term.top, term.bot);
+
+	colend = term.col;
+	LIMIT(colend, 0, term.col);
+
+	/*
+	** Scan from (term.row - 1,term.col - 1) to (0,0) and find
+	** next occurrance of a URL
+	*/
+	for (passes = 0; passes < term.row; passes++)
+	{
+		/* Read in each column of every row until
+		** we hit previous occurrence of URL
+		*/
+		for (col = colend; col--;)
+			if (daddch(&dfa, term.line[row][col].u < 128 ? term.line[row][col].u : ' '))
+			{
+				if (passes < term.row)
+				{
+					for (size_t i = col; i <= (col + dfa.length - 1) % term.col; i++)
+					{
+						for (size_t j = row; j <= row + (col + dfa.length - 1) / term.col; j++)
+						{
+							if (dummy->i == 0)
+							{
+								term.line[j][i].mode |= ATTR_UNDERLINE;
+							}
+							else
+							{
+								term.line[j][i].mode &= ~ATTR_UNDERLINE;
+							}
+						}
+					}
+				}
+				continue;
+			}
+		if (col >= 0)
+			break;
+
+		if (--row < 0)
+			row = term.row - 1;
+
+		colend = term.col;
+	}
+
+	redraw();
+}
 void run(void)
 {
 	XEvent ev;
@@ -2057,7 +2265,9 @@ void run(void)
 		clock_gettime(CLOCK_MONOTONIC, &now);
 
 		if (FD_ISSET(ttyfd, &rfd))
+		{
 			ttyread();
+		}
 
 		xev = 0;
 		while (XPending(xw.dpy))

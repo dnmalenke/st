@@ -35,7 +35,6 @@
 #define ESC_ARG_SIZ 16
 #define STR_BUF_SIZ ESC_BUF_SIZ
 #define STR_ARG_SIZ ESC_ARG_SIZ
-#define HISTSIZE 2000
 #define RESIZEBUFFER 1000
 
 /* macros */
@@ -115,13 +114,6 @@ enum escape_state
 	ESC_UTF8 = 64,
 };
 
-typedef struct
-{
-	Glyph attr; /* current char attributes */
-	int x;
-	int y;
-	char state;
-} TCursor;
 
 typedef struct
 {
@@ -142,32 +134,6 @@ typedef struct
 
 	int alt;
 } Selection;
-
-/* Internal representation of the screen */
-typedef struct
-{
-	int row;			 /* nb row */
-	int col;			 /* nb col */
-	Line *line;			 /* screen */
-	Line hist[HISTSIZE]; /* history buffer */
-	int histi;			 /* history index */
-	int histf;			 /* nb history available */
-	int scr;			 /* scroll back */
-	int wrapcwidth[2];	 /* used in updating WRAPNEXT when resizing */
-	int *dirty;			 /* dirtyness of lines */
-	TCursor c;			 /* cursor */
-	int ocx;			 /* old cursor col */
-	int ocy;			 /* old cursor row */
-	int top;			 /* top    scroll limit */
-	int bot;			 /* bottom scroll limit */
-	int mode;			 /* terminal mode flags */
-	int esc;			 /* escape state flags */
-	char trantbl[4];	 /* charset table translation */
-	int charset;		 /* current charset */
-	int icharset;		 /* selected charset for sequence */
-	int *tabs;
-	Rune lastc; /* last printed char outside of sequence, 0 if control */
-} Term;
 
 /* CSI Escape sequence structs */
 /* ESC '[' [[ [<priv>] <arg> [;]] <mode> [<mode>]] */
@@ -274,7 +240,7 @@ static char base64dec_getc(const char **);
 static ssize_t xwrite(int, const char *, size_t);
 
 /* Globals */
-static Term term;
+Term term;
 static Selection sel;
 static CSIEscape csiescseq;
 static STREscape strescseq;

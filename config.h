@@ -176,10 +176,9 @@ static uint forcemousemod = 0;
  */
 static MouseShortcut mshortcuts[] = {
 	/* mask                 button   function        argument       release */
-	{ XK_ANY_MOD,            Button4, kscrollup,      {.i = 3} },
-	{ XK_ANY_MOD,            Button5, kscrolldown,    {.i = 3} },
-	{ XK_ANY_MOD,           Button3, handleRightClick,       {.i = 0},      0 },
-//	{ XK_ANY_MOD,           Button3, ttysend,       {.s = "\033[C"} ,      1 },
+	{ XK_ANY_MOD,           Button4, kscrollup,      {.i = 3} },
+	{ XK_ANY_MOD,           Button5, kscrolldown,    {.i = 3} },
+	{ XK_ANY_MOD,           Button3, handleRightClick,{.i = 0},      0 },
 	{ ShiftMask,            Button4, ttysend,        {.s = "\033[5;2~"} },
 	{ XK_ANY_MOD,           Button4, ttysend,        {.s = "\031"} },
 	{ ShiftMask,            Button5, ttysend,        {.s = "\033[6;2~"} },
@@ -206,6 +205,7 @@ static Shortcut shortcuts[] = {
 	{ TERMMOD,              XK_Num_Lock,    numlock,        {.i =  0} },
 	{ ShiftMask,            XK_Page_Up,     kscrollup,      {.i = -1} },
 	{ ShiftMask,            XK_Page_Down,   kscrolldown,    {.i = -1} },
+	//{ XK_ANY_MOD,          	XK_Control_L,   underlineurls,  {.i =  0} }
 };
 
 /*

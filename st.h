@@ -19,6 +19,7 @@
 
 #define TRUECOLOR(r,g,b)	(1 << 24 | (r) << 16 | (g) << 8 | (b))
 #define IS_TRUECOL(x)		(1 << 24 & (x))
+#define HISTSIZE 2000
 
 enum glyph_attribute {
 	ATTR_NULL       = 0,
@@ -79,6 +80,41 @@ typedef union {
 	const char *s;
 } Arg;
 
+typedef struct
+{
+	Glyph attr; /* current char attributes */
+	int x;
+	int y;
+	char state;
+} TCursor;
+
+/* Internal representation of the screen */
+typedef struct
+{
+	int row;			 /* nb row */
+	int col;			 /* nb col */
+	Line *line;			 /* screen */
+	Line hist[HISTSIZE]; /* history buffer */
+	int histi;			 /* history index */
+	int histf;			 /* nb history available */
+	int scr;			 /* scroll back */
+	int wrapcwidth[2];	 /* used in updating WRAPNEXT when resizing */
+	int *dirty;			 /* dirtyness of lines */
+	TCursor c;			 /* cursor */
+	int ocx;			 /* old cursor col */
+	int ocy;			 /* old cursor row */
+	int top;			 /* top    scroll limit */
+	int bot;			 /* bottom scroll limit */
+	int mode;			 /* terminal mode flags */
+	int esc;			 /* escape state flags */
+	char trantbl[4];	 /* charset table translation */
+	int charset;		 /* current charset */
+	int icharset;		 /* selected charset for sequence */
+	int *tabs;
+	Rune lastc; /* last printed char outside of sequence, 0 if control */
+} Term;
+
+
 void die(const char *, ...);
 void redraw(void);
 void draw(void);
@@ -129,3 +165,4 @@ extern unsigned int tabspaces;
 extern unsigned int defaultfg;
 extern unsigned int defaultbg;
 extern unsigned int defaultcs;
+extern Term term;
