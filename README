@@ -1,3 +1,11 @@
+My version of st
+Added features:
+- Hold Ctrl to underline links, Ctrl+Click to open in web broswer
+- Mouse scrolling support
+- Right Click with selected text to copy
+- Right Click without selection to paste
+- Esc to clear selection. Esc passes through to zsh to clear input buffer as well
+
 st - simple terminal
 --------------------
 st is a simple terminal emulator for X which sucks less.

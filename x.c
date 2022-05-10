@@ -63,6 +63,7 @@ static void zoomabs(const Arg *);
 static void zoomreset(const Arg *);
 static void ttysend(const Arg *);
 static void handleRightClick(const Arg *);
+void handleEsc(const Arg *);
 void underlineurls(const Arg *);
 
 /* config.h for applying patches and the configuration. */
@@ -308,7 +309,7 @@ void clippaste(const Arg *dummy)
 
 void handleRightClick(const Arg *dummy)
 {
-	if (getsel() == '\0')
+	if (getsel() == NULL)
 	{
 		clippaste(dummy);
 	}
@@ -317,6 +318,11 @@ void handleRightClick(const Arg *dummy)
 		clipcopy(dummy);
 		selclear();
 	}
+}
+
+void handleEsc(const Arg *dummy)
+{
+	selclear();
 }
 
 void selpaste(const Arg *dummy)
@@ -545,7 +551,7 @@ void bpress(XEvent *e)
 			{
 				url[i - start + 9] = term.line[y][i].u;
 			}
-			url[end-start+9] = '\0';
+			url[end - start + 9] = '\0';
 
 			popen(url, "r");
 			free(url);
@@ -2045,7 +2051,10 @@ void kpress(XEvent *ev)
 		if (ksym == bp->keysym && match(bp->mod, e->state))
 		{
 			bp->func(&(bp->arg));
-			return;
+			if (bp->func != handleEsc)
+			{
+				return;
+			}
 		}
 	}
 
