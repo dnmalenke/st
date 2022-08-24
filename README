@@ -6,6 +6,10 @@ Added features:
 - Right Click without selection to paste
 - Esc to clear selection. Esc passes through to zsh to clear input buffer as well
 
+TODO:
+- Shift arrow key selection
+- Cleaner Key handling. support for keyup handlers
+
 st - simple terminal
 --------------------
 st is a simple terminal emulator for X which sucks less.
